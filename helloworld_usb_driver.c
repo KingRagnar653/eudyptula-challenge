@@ -47,6 +47,12 @@ static struct usb_driver hw_usb_driver = {
     .id_table = id_table,
 };
 
+#ifdef IS_NEW_METHOD_USED
+/*
+ * this replace module_init and module_exit
+ */
+module_usb_driver(hw_usb_driver);
+#else
 static int __init hello_start(void)
 {
 	pr_debug("Hello world\n");
@@ -61,3 +67,4 @@ static void __exit hello_end(void)
 
 module_init(hello_start);
 module_exit(hello_end);
+#endif /* IS_NEW_METHOD */
