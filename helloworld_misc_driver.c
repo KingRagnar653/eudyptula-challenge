@@ -4,6 +4,10 @@
 #include <linux/kernel.h> /* Needed for KERN_INFO */
 #include <linux/miscdevice.h>
 #include <linux/module.h> /* Needed by all modules */
+#include <linux/poll.h>
+
+#define MY_ID "12345678"
+#define MY_ID_LEN 9
 
 ///< The license type -- this affects runtime behavior
 MODULE_LICENSE("GPL");
@@ -19,11 +23,13 @@ MODULE_VERSION("0.1");
 static ssize_t hw_misc_write(struct file *file, const char __user *buf,
 			     size_t len, loff_t *ppos)
 {
-	pr_info("Hello World misc device write\n");
+	char *my_str = MY_ID;
+	char input[MY_ID_LEN];
 
-	/* We are not doing anything with this data now */
-
-	return len;
+	if((len != MY_ID_LEN)||(copy_from_user(input,buf,MY_ID_LEN))||(strncmp(input,my_str,MY_ID_LEN-1)))
+		return -EINVAL;
+	else 
+		return len;
 }
 
 /*
@@ -32,9 +38,13 @@ static ssize_t hw_misc_write(struct file *file, const char __user *buf,
 static ssize_t hw_misc_read(struct file *filp, char __user *buf, size_t count,
 			    loff_t *f_pos)
 {
-	pr_info("Hello World misc device read\n");
-
-	return 0;
+	char *my_str = MY_ID;
+	if(*f_pos != 0)
+		return 0;
+	if((count < MY_ID_LEN)||(copy_to_user(buf,my_str,MY_ID_LEN)))
+		return -EINVAL;
+	*f_pos += count;
+	return count;
 }
 /*
  * file operation structure misc
