@@ -5,6 +5,7 @@
 #include <linux/debugfs.h>
 #include <linux/fs.h>
 #include <linux/poll.h>
+#include <linux/jiffies.h>
 
 #define MY_ID "12345678"
 #define MY_ID_LEN 9
@@ -58,6 +59,7 @@ static const struct file_operations id_fops = {
 
 static int __init hello_start(void)
 {
+	unsigned long t = jiffies;
 	/*
 	 * create debug sub dir eudyptula /sys/kernel/debug/eudyptula 
 	*/
@@ -66,6 +68,11 @@ static int __init hello_start(void)
 	 * create a new file in eudyptula dir with same read and write logic as task_06
 	*/
 	if(!(debugfs_create_file("id",0666,dentry,NULL,&id_fops)))
+		return -ENODEV;
+	/**
+	 * create file jiffies readonly gives current kernel jiffies value
+	*/
+	if(!(debugfs_create_u32("jiffies",0444,dentry,(u32 *)&t)))
 		return -ENODEV;
 	return 0;
 }
