@@ -6,6 +6,8 @@
 #include <linux/fs.h>
 #include <linux/poll.h>
 #include <linux/jiffies.h>
+#include <linux/slab.h>
+#include <linux/rwlock.h>
 
 #define MY_ID "12345678"
 #define MY_ID_LEN 9
@@ -20,6 +22,8 @@ MODULE_DESCRIPTION("Hello World");
 MODULE_VERSION("0.1");
 
 struct dentry *dentry;
+static char input[PAGE_SIZE];
+static rwlock_t memlock = __RW_LOCK_UNLOCKED(memlock);
 
 /*
 ** This function will be called when we write the Misc Device file
@@ -56,6 +60,56 @@ static const struct file_operations id_fops = {
 	.read = id_read,
 	.write = id_write
 };
+/*
+** This function will be called when we write the Misc Device file
+*/
+static ssize_t foo_write(struct file *file, const char __user *buf,
+			     size_t len, loff_t *ppos)
+{
+	ssize_t retval = 0;
+	unsigned long flags;
+
+	write_lock_irqsave(&memlock,flags);
+	if(copy_from_user(input,buf,sizeof(buf))){
+		pr_alert("Error in copy from user func()");
+		retval = -EFAULT;
+		goto out;
+	}
+out:
+	write_unlock_irqrestore(&memlock,flags);
+	return retval;
+}
+
+/*
+** This function will be called when we read the Misc Device file
+*/
+static ssize_t foo_read(struct file *filp, char __user *buf, size_t count,
+			    loff_t *f_pos)
+{
+	ssize_t retval = 0;
+	unsigned long flags;
+
+	read_lock_irqsave(&memlock,flags);
+	if(retval != 0)
+		goto out;
+	if(copy_to_user(buf,input,sizeof(input))){
+		pr_alert("Error in copy to user func()");
+		retval = -EFAULT;
+		goto out;
+	}
+
+	(*f_pos) += sizeof(input);
+	retval += sizeof(input);
+out:
+	read_unlock_irqrestore(&memlock,flags);
+	return retval;
+}
+
+static const struct file_operations foo_fops = {
+	.owner = THIS_MODULE,
+	.read = foo_read,
+	.write = foo_write
+};
 
 static int __init hello_start(void)
 {
@@ -73,6 +127,11 @@ static int __init hello_start(void)
 	 * create file jiffies readonly gives current kernel jiffies value
 	*/
 	if(!(debugfs_create_u32("jiffies",0444,dentry,(u32 *)&t)))
+		return -ENODEV;
+	/*
+	 * create debugfs file readonly except root user foo
+	*/
+	if(!(debugfs_create_file("foo",0644,dentry,NULL,&foo_fops)))
 		return -ENODEV;
 	return 0;
 }
