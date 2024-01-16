@@ -88,6 +88,10 @@ static ssize_t foo_read(struct file *filp, char __user *buf, size_t count,
 	ssize_t retval = 0;
 	unsigned long flags;
 
+	if ((*f_pos) >= PAGE_SIZE) {
+		printk("reading past the page size\n");
+		return 0;
+	}
 	read_lock_irqsave(&memlock, flags);
 
 	if (copy_to_user(buf, input, sizeof(input))) {
