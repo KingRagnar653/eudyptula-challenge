@@ -68,7 +68,6 @@ static ssize_t foo_write(struct file *file, const char __user *buf, size_t len,
 	unsigned long flags;
 
 	if ((*ppos) >= PAGE_SIZE) {
-		printk("writing past the page size\n");
 		return -ENOSPC;
 	}
 	write_lock_irqsave(&memlock, flags);
@@ -79,7 +78,6 @@ static ssize_t foo_write(struct file *file, const char __user *buf, size_t len,
 	}
 	retval += sizeof(buf);
 	(*ppos) += sizeof(buf);
-	pr_alert("[DEBUGFS MODULE] Write operation succeeded !!\n");
 out:
 	write_unlock_irqrestore(&memlock, flags);
 	return retval;
@@ -95,7 +93,6 @@ static ssize_t foo_read(struct file *filp, char __user *buf, size_t count,
 	unsigned long flags;
 
 	if ((*f_pos) >= PAGE_SIZE) {
-		printk("reading past the page size\n");
 		return 0;
 	}
 	read_lock_irqsave(&memlock, flags);
@@ -110,7 +107,6 @@ static ssize_t foo_read(struct file *filp, char __user *buf, size_t count,
 	retval += sizeof(input);
 out:
 	read_unlock_irqrestore(&memlock, flags);
-	pr_alert("[DEBUGFS MODULE] Read operation succeeded !!\n");
 	return retval;
 }
 
