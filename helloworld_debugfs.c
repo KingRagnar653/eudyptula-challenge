@@ -67,12 +67,18 @@ static ssize_t foo_write(struct file *file, const char __user *buf, size_t len,
 	ssize_t retval = 0;
 	unsigned long flags;
 
+	if ((*ppos) >= PAGE_SIZE) {
+		printk("writing past the page size\n");
+		return -ENOSPC;
+	}
 	write_lock_irqsave(&memlock, flags);
 	if (copy_from_user(input, buf, sizeof(buf))) {
 		pr_alert("Error in copy from user func()");
 		retval = -EFAULT;
 		goto out;
 	}
+	retval += sizeof(buf);
+	(*ppos) += sizeof(buf);
 	pr_alert("[DEBUGFS MODULE] Write operation succeeded !!\n");
 out:
 	write_unlock_irqrestore(&memlock, flags);
