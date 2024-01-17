@@ -4,10 +4,12 @@
 #include <linux/init.h> /* Needed for the macros */
 #include <linux/jiffies.h>
 #include <linux/kernel.h> /* Needed for KERN_INFO */
+#include <linux/kobject.h>
 #include <linux/module.h> /* Needed by all modules */
 #include <linux/poll.h>
 #include <linux/rwlock.h>
 #include <linux/slab.h>
+#include <linux/string.h>
 
 #define MY_ID "12345678"
 #define MY_ID_LEN 9
@@ -21,64 +23,52 @@ MODULE_DESCRIPTION("Hello World");
 ///< The version of the module
 MODULE_VERSION("0.1");
 
-struct dentry *dentry;
+static struct kobject *eud_kobj;
 static char input[PAGE_SIZE];
 static rwlock_t memlock = __RW_LOCK_UNLOCKED(memlock);
 
 /*
 ** This function will be called when we write the Misc Device file
 */
-static ssize_t id_write(struct file *file, const char __user *buf, size_t len,
-			loff_t *ppos)
+static ssize_t id_store(struct kobject *kobj, struct kobj_attribute *attr,
+			const char *buf, size_t count)
 {
 	char *my_str = MY_ID;
 	char input[MY_ID_LEN];
 
-	if ((len != MY_ID_LEN) || (copy_from_user(input, buf, MY_ID_LEN)) ||
-	    (strncmp(input, my_str, MY_ID_LEN - 1)))
+	strncpy(input, buf, count);
+	if (strncmp(input, my_str, MY_ID_LEN - 1))
 		return -EINVAL;
-	else
-		return len;
+	return count;
 }
 
 /*
 ** This function will be called when we read the Misc Device file
 */
-static ssize_t id_read(struct file *filp, char __user *buf, size_t count,
-		       loff_t *f_pos)
+static ssize_t id_show(struct kobject *kobj, struct kobj_attribute *attr,
+		       char *buf)
 {
+	ssize_t retval = 0;
 	char *my_str = MY_ID;
-	if (*f_pos != 0)
-		return 0;
-	if ((count < MY_ID_LEN) || (copy_to_user(buf, my_str, MY_ID_LEN)))
-		return -EINVAL;
-	*f_pos += count;
-	return count;
+
+	strncpy(buf, MY_ID, MY_ID_LEN);
+	retval += MY_ID_LEN;
+	return retval;
 }
 
-static const struct file_operations id_fops = {
-    .owner = THIS_MODULE, .read = id_read, .write = id_write};
 /*
 ** This function will be called when we write the Misc Device file
 */
-static ssize_t foo_write(struct file *file, const char __user *buf, size_t len,
-			 loff_t *ppos)
+static ssize_t foo_store(struct kobject *kobj, struct kobj_attribute *attr,
+			 const char *buf, size_t count)
 {
 	ssize_t retval = 0;
 	unsigned long flags;
 
-	if ((*ppos) >= PAGE_SIZE) {
-		return -ENOSPC;
-	}
 	write_lock_irqsave(&memlock, flags);
-	if (copy_from_user(input, buf, sizeof(buf))) {
-		pr_alert("Error in copy from user func()");
-		retval = -EFAULT;
-		goto out;
-	}
+
+	strncpy(input, buf, count);
 	retval += sizeof(buf);
-	(*ppos) += sizeof(buf);
-out:
 	write_unlock_irqrestore(&memlock, flags);
 	return retval;
 }
@@ -86,60 +76,82 @@ out:
 /*
 ** This function will be called when we read the Misc Device file
 */
-static ssize_t foo_read(struct file *filp, char __user *buf, size_t count,
-			loff_t *f_pos)
+static ssize_t foo_show(struct kobject *kobj, struct kobj_attribute *attr,
+			char *buf)
 {
 	ssize_t retval = 0;
 	unsigned long flags;
 
-	if ((*f_pos) >= PAGE_SIZE) {
-		return 0;
-	}
 	read_lock_irqsave(&memlock, flags);
 
-	if (copy_to_user(buf, input, sizeof(input))) {
-		pr_alert("Error in copy to user func()");
-		retval = -EFAULT;
-		goto out;
-	}
+	strncpy(buf, input, PAGE_SIZE);
+	retval += PAGE_SIZE;
 
-	(*f_pos) += sizeof(input);
-	retval += sizeof(input);
-out:
 	read_unlock_irqrestore(&memlock, flags);
 	return retval;
 }
 
-static const struct file_operations foo_fops = {
-    .owner = THIS_MODULE, .read = foo_read, .write = foo_write};
+static ssize_t jiff_show(struct kobject *kobj, struct kobj_attribute *attr,
+			 char *buf)
+{
+	ssize_t retval = 0;
+	char jiff_char[20];
+
+	snprintf(jiff_char, sizeof(jiff_char), "%lu", jiffies);
+	strncpy(buf, jiff_char, sizeof(jiff_char));
+
+	retval += sizeof(jiff_char);
+	return retval;
+}
+
+static struct kobj_attribute *id_attr = __ATTR_RW(id);
+static struct kobj_attribute *jiff_attr = __ATTR_RO(jiff);
+static struct kobj_attribute *foo_attr = __ATTR_RW(foo, 0644);
 
 static int __init hello_start(void)
 {
-	unsigned long t = jiffies;
+	int result;
 	/*
-	 * create debug sub dir eudyptula /sys/kernel/debug/eudyptula
+	 * create sysfs sub dir eudyptula
 	 */
-	dentry = debugfs_create_dir("eudyptula", NULL);
+	eud_kobj = kobj_create_and_add("eudyptula", kernel_kobj);
+	if (!eud_kobj)
+		return -ENOMEM;
 	/**
 	 * create a new file in eudyptula dir with same read and write logic as
 	 * task_06
 	 */
-	if (!(debugfs_create_file("id", 0666, dentry, NULL, &id_fops)))
-		return -ENODEV;
+	result = sysfs_create_file(eud_kobj, &id_attr.attr);
+	if (!result) {
+		kobject_put(eud_kobj, kobject_put);
+		return result;
+	}
 	/**
 	 * create file jiffies readonly gives current kernel jiffies value
 	 */
-	if (!(debugfs_create_u32("jiffies", 0444, dentry, (u32 *)&t)))
-		return -ENODEV;
+	result = sysfs_create_file(eud_kobj, &jiff_attr.attr);
+	if (!result) {
+		kobject_put(eud_kobj, kobject_put);
+		return result;
+	}
 	/*
-	 * create debugfs file readonly except root user foo
+	 * create  file readonly except root user foo
 	 */
-	if (!(debugfs_create_file("foo", 0644, dentry, NULL, &foo_fops)))
-		return -ENODEV;
+	result = sysfs_create_file(eud_kobj, &foo_attr.attr);
+	if (!result) {
+		kobject_put(eud_kobj, kobject_put);
+		return return;
+	}
 	return 0;
 }
 
-static void __exit hello_end(void) { debugfs_remove_recursive(dentry); }
+static void __exit hello_end(void)
+{
+	sysfs_remove_file(eud_kobj, &id_attr.attr);
+	sysfs_remove_file(eud_kobj, &foo_attr.attr);
+	sysfs_remove_file(eud_kobj, &jiff_attr.attr);
+	kobject_put(eud_kobj, kobject_put);
+}
 
 module_init(hello_start);
 module_exit(hello_end);
