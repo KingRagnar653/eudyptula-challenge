@@ -67,8 +67,7 @@ static ssize_t foo_store(struct kobject *kobj, struct kobj_attribute *attr,
 
 	write_lock_irqsave(&memlock, flags);
 
-	strncpy(input, buf, count);
-	retval += sizeof(buf);
+	retval = snprintf(input, PAGE_SIZE, "%s\n", buf);
 	write_unlock_irqrestore(&memlock, flags);
 	return retval;
 }
@@ -84,8 +83,7 @@ static ssize_t foo_show(struct kobject *kobj, struct kobj_attribute *attr,
 
 	read_lock_irqsave(&memlock, flags);
 
-	strncpy(buf, input, sizeof(input));
-	retval += sizeof(input);
+	retval = snprintf(buf, PAGE_SIZE, "%s\n", input);
 
 	read_unlock_irqrestore(&memlock, flags);
 	return retval;
