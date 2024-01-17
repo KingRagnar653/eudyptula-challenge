@@ -84,8 +84,8 @@ static ssize_t foo_show(struct kobject *kobj, struct kobj_attribute *attr,
 
 	read_lock_irqsave(&memlock, flags);
 
-	strncpy(buf, input, PAGE_SIZE);
-	retval += PAGE_SIZE;
+	strncpy(buf, input, sizeof(input));
+	retval += sizeof(input);
 
 	read_unlock_irqrestore(&memlock, flags);
 	return retval;
@@ -125,7 +125,7 @@ static int __init hello_start(void)
 	 * task_06
 	 */
 	result = sysfs_create_file(eud_kobj, &id_attr.attr);
-	if (!result) {
+	if (result) {
 		pr_err("[SYS_ERROR] failed to create id file\n");
 		kobject_put(eud_kobj);
 		eud_kobj = NULL;
@@ -135,7 +135,7 @@ static int __init hello_start(void)
 	 * create file jiffies readonly gives current kernel jiffies value
 	 */
 	result = sysfs_create_file(eud_kobj, &jiff_attr.attr);
-	if (!result) {
+	if (result) {
 		pr_err("[SYS_ERROR] failed to create jiff file\n");
 		kobject_put(eud_kobj);
 		eud_kobj = NULL;
@@ -145,7 +145,7 @@ static int __init hello_start(void)
 	 * create  file readonly except root user foo
 	 */
 	result = sysfs_create_file(eud_kobj, &foo_attr.attr);
-	if (!result) {
+	if (result) {
 		pr_err("[SYS_ERROR] failed to create foo file\n");
 		kobject_put(eud_kobj);
 		eud_kobj = NULL;
