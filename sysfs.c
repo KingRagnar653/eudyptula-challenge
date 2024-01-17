@@ -115,15 +115,20 @@ static int __init hello_start(void)
 	 * create sysfs sub dir eudyptula
 	 */
 	eud_kobj = kobject_create_and_add("eudyptula", kernel_kobj);
-	if (!eud_kobj)
+	if (!eud_kobj) {
+		pr_err("[SYS_ERROR] failed to create and add "
+		       "kobject\n");
 		return -ENOMEM;
+	}
 	/**
 	 * create a new file in eudyptula dir with same read and write logic as
 	 * task_06
 	 */
 	result = sysfs_create_file(eud_kobj, &id_attr.attr);
 	if (!result) {
+		pr_err("[SYS_ERROR] failed to create id file\n");
 		kobject_put(eud_kobj);
+		eud_kobj = NULL;
 		return result;
 	}
 	/**
@@ -131,7 +136,9 @@ static int __init hello_start(void)
 	 */
 	result = sysfs_create_file(eud_kobj, &jiff_attr.attr);
 	if (!result) {
+		pr_err("[SYS_ERROR] failed to create jiff file\n");
 		kobject_put(eud_kobj);
+		eud_kobj = NULL;
 		return result;
 	}
 	/*
@@ -139,7 +146,9 @@ static int __init hello_start(void)
 	 */
 	result = sysfs_create_file(eud_kobj, &foo_attr.attr);
 	if (!result) {
+		pr_err("[SYS_ERROR] failed to create foo file\n");
 		kobject_put(eud_kobj);
+		eud_kobj = NULL;
 		return result;
 	}
 	return 0;
@@ -147,10 +156,14 @@ static int __init hello_start(void)
 
 static void __exit hello_end(void)
 {
-	sysfs_remove_file(eud_kobj, &id_attr.attr);
-	sysfs_remove_file(eud_kobj, &foo_attr.attr);
-	sysfs_remove_file(eud_kobj, &jiff_attr.attr);
-	kobject_put(eud_kobj);
+	if (eud_kobj) {
+		sysfs_remove_file(eud_kobj, &id_attr.attr);
+		sysfs_remove_file(eud_kobj, &foo_attr.attr);
+		sysfs_remove_file(eud_kobj, &jiff_attr.attr);
+		kobject_put(eud_kobj);
+	} else {
+		printk("[SYS_ERROR] exit kobject doesnt exist\n");
+	}
 }
 
 module_init(hello_start);
