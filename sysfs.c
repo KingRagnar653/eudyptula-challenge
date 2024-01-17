@@ -51,7 +51,7 @@ static ssize_t id_show(struct kobject *kobj, struct kobj_attribute *attr,
 	ssize_t retval = 0;
 	char *my_str = MY_ID;
 
-	strncpy(buf, MY_ID, MY_ID_LEN);
+	strncpy(buf, my_str, MY_ID_LEN);
 	retval += MY_ID_LEN;
 	return retval;
 }
@@ -104,9 +104,9 @@ static ssize_t jiff_show(struct kobject *kobj, struct kobj_attribute *attr,
 	return retval;
 }
 
-static struct kobj_attribute *id_attr = __ATTR_RW(id);
-static struct kobj_attribute *jiff_attr = __ATTR_RO(jiff);
-static struct kobj_attribute *foo_attr = __ATTR_RW(foo, 0644);
+static struct kobj_attribute id_attr = __ATTR_RW(id);
+static struct kobj_attribute jiff_attr = __ATTR_RO(jiff);
+static struct kobj_attribute foo_attr = __ATTR(foo, 0644, foo_show, foo_store);
 
 static int __init hello_start(void)
 {
@@ -114,7 +114,7 @@ static int __init hello_start(void)
 	/*
 	 * create sysfs sub dir eudyptula
 	 */
-	eud_kobj = kobj_create_and_add("eudyptula", kernel_kobj);
+	eud_kobj = kobject_create_and_add("eudyptula", kernel_kobj);
 	if (!eud_kobj)
 		return -ENOMEM;
 	/**
@@ -123,7 +123,7 @@ static int __init hello_start(void)
 	 */
 	result = sysfs_create_file(eud_kobj, &id_attr.attr);
 	if (!result) {
-		kobject_put(eud_kobj, kobject_put);
+		kobject_put(eud_kobj);
 		return result;
 	}
 	/**
@@ -131,7 +131,7 @@ static int __init hello_start(void)
 	 */
 	result = sysfs_create_file(eud_kobj, &jiff_attr.attr);
 	if (!result) {
-		kobject_put(eud_kobj, kobject_put);
+		kobject_put(eud_kobj);
 		return result;
 	}
 	/*
@@ -139,8 +139,8 @@ static int __init hello_start(void)
 	 */
 	result = sysfs_create_file(eud_kobj, &foo_attr.attr);
 	if (!result) {
-		kobject_put(eud_kobj, kobject_put);
-		return return;
+		kobject_put(eud_kobj);
+		return result;
 	}
 	return 0;
 }
@@ -150,7 +150,7 @@ static void __exit hello_end(void)
 	sysfs_remove_file(eud_kobj, &id_attr.attr);
 	sysfs_remove_file(eud_kobj, &foo_attr.attr);
 	sysfs_remove_file(eud_kobj, &jiff_attr.attr);
-	kobject_put(eud_kobj, kobject_put);
+	kobject_put(eud_kobj);
 }
 
 module_init(hello_start);
