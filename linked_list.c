@@ -16,7 +16,13 @@ LIST_HEAD(mylinkedlist);
 static int identity_create(char *name, int id) {
   struct identity *elem;
 
+  if (strlen(name) > 20)
+    return -EINVAL;
+
   elem = kmalloc(sizeof(struct identity), GFP_KERNEL);
+  if (!elem)
+    return -ENOMEM;
+
   elem->id = id;
   strncpy(elem->name, name, strlen(name));
 
@@ -46,11 +52,22 @@ void identity_destroy(int id) {
 
 static int __init my_init(void) {
   struct identity *temp;
+  int ret = 0;
 
-  identity_create("Alice", 1);
-  identity_create("Bob", 2);
+  ret = identity_create("Alice", 1);
+  if (ret)
+    pr_alert("Error while adding Alice : %d\n", ret);
+
+  ret = identity_create("Bob", 2);
+  if (ret)
+    pr_alert("Error while adding Bob : %d\n", ret);
   identity_create("Dave", 3);
+  if (ret)
+    pr_alert("Error while adding Dave : %d\n", ret);
+
   identity_create("Gena", 10);
+  if (ret)
+    pr_alert("Error while adding Gena : %d\n", ret);
 
   temp = identity_find(3);
   pr_debug("id 3 = %s\n", temp->name);
