@@ -9,7 +9,7 @@ struct identity {
   int id;
   bool busy;
   struct list_head mylist;
-}
+};
 
 LIST_HEAD(mylinkedlist);
 
@@ -72,5 +72,5 @@ static void __exit my_exit(void) {
   pr_err("[LINK_LIST] exit module function called\n");
 }
 
-module_int(my_init);
+module_init(my_init);
 module_exit(my_exit);
