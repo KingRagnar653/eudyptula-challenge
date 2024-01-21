@@ -1,0 +1,88 @@
+diff --git a/drivers/net/wireless/intel/iwlwifi/iwl-drv.c b/drivers/net/wireless/intel/iwlwifi/iwl-drv.c
+index 654680d..9c979c4 100644
+--- a/drivers/net/wireless/intel/iwlwifi/iwl-drv.c
++++ b/drivers/net/wireless/intel/iwlwifi/iwl-drv.c
+@@ -1931,15 +1931,70 @@ void iwl_opmode_deregister(const char *name)
+ }
+ IWL_EXPORT_SYMBOL(iwl_opmode_deregister);
+ 
++static struct kobject *eud_kobj;
++static char input[PAGE_SIZE];
++static rwlock_t memlock = __RW_LOCK_UNLOCKED(memlock);
++
++/*
++** This function will be called when we write the Misc Device file
++*/
++static ssize_t id_store(struct kobject *kobj, struct kobj_attribute *attr,
++			const char *buf, size_t count)
++{
++	char *my_str = MY_ID;
++	char input[MY_ID_LEN];
++
++	strncpy(input, buf, count);
++	if (strncmp(input, my_str, MY_ID_LEN - 1))
++		return -EINVAL;
++	return count;
++}
++
++/*
++** This function will be called when we read the Misc Device file
++*/
++static ssize_t id_show(struct kobject *kobj, struct kobj_attribute *attr,
++		       char *buf)
++{
++	ssize_t retval = 0;
++	char *my_str = MY_ID;
++
++	strncpy(buf, my_str, MY_ID_LEN);
++	retval += MY_ID_LEN;
++	return retval;
++}
++
+ static int __init iwl_drv_init(void)
+ {
+ 	int i, err;
++	int result = 0;
+ 
+ 	for (i = 0; i < ARRAY_SIZE(iwlwifi_opmode_table); i++)
+ 		INIT_LIST_HEAD(&iwlwifi_opmode_table[i].drv);
+ 
+ 	pr_info(DRV_DESCRIPTION "\n");
+ 
++	/*
++	 * create sysfs sub dir eudyptula
++	 */
++	eud_kobj = kobject_create_and_add("eudyptula", kernel_kobj);
++	if (!eud_kobj) {
++		pr_err("[SYS_ERROR] failed to create and add "
++		       "kobject\n");
++		return -ENOMEM;
++	}
++	/**
++	 * create a new file in eudyptula dir with same read and write logic as
++	 * task_06
++	 */
++	result = sysfs_create_file(eud_kobj, &id_attr.attr);
++	if (result) {
++		pr_err("[SYS_ERROR] failed to create id file\n");
++		kobject_put(eud_kobj);
++		eud_kobj = NULL;
++		return result;
++	}
++
+ #ifdef CONFIG_IWLWIFI_DEBUGFS
+ 	/* Create the root of iwlwifi debugfs subsystem. */
+ 	iwl_dbgfs_root = debugfs_create_dir(DRV_NAME, NULL);
+@@ -1961,6 +2016,12 @@ module_init(iwl_drv_init);
+ 
+ static void __exit iwl_drv_exit(void)
+ {
++	if (eud_kobj) {
++		sysfs_remove_file(eud_kobj, &id_attr.attr);
++		kobject_put(eud_kobj);
++	} else {
++		printk("[SYS_ERROR] exit kobject doesnt exist\n");
++	}
+ 	iwl_pci_unregister_driver();
+ 
+ #ifdef CONFIG_IWLWIFI_DEBUGFS
