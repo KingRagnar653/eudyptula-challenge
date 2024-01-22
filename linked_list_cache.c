@@ -11,6 +11,8 @@ struct identity {
   struct list_head mylist;
 };
 
+struct kmem_cache *linkedlist_cache;
+
 LIST_HEAD(mylinkedlist);
 
 static int identity_create(char *name, int id) {
@@ -19,9 +21,11 @@ static int identity_create(char *name, int id) {
   if (strlen(name) > 20)
     return -EINVAL;
 
-  elem = kmalloc(sizeof(struct identity), GFP_KERNEL);
-  if (!elem)
+  elem = kmem_cache_alloc(linkedlist_cache,GFP_KERNEL);
+  if (!elem) {
+    pr_err("identity_create : failed to create cache object\n");
     return -ENOMEM;
+  }
 
   elem->id = id;
   strncpy(elem->name, name, strlen(name));
@@ -45,7 +49,7 @@ void identity_destroy(int id) {
   list_for_each_entry(id_elem, &mylinkedlist, mylist) {
     if (id_elem->id == id) {
       __list_del_entry(&id_elem->mylist);
-      kfree(id_elem);
+      kmem_cache_free(linkedlist_cache,id_elem);
     }
   }
 }
@@ -53,6 +57,12 @@ void identity_destroy(int id) {
 static int __init my_init(void) {
   struct identity *temp;
   int ret = 0;
+
+  linkedlist_cache = kmem_cache_create("linkedlist_cache",sizeof(struct identity),0,0,NULL);
+  if(!linkedlist_cache) {
+    pr_err("LINK_LIST failed to create cache\n");
+    return -ENOMEM;
+  }
 
   ret = identity_create("Alice", 1);
   if (ret)
@@ -86,6 +96,10 @@ static int __init my_init(void) {
 }
 
 static void __exit my_exit(void) {
+  if(linkedlist_cache) {
+    kmem_cache_destroy(linkedlist_cache);
+    pr_alert("destroyed linked list cache\n");
+  }
   pr_err("[LINK_LIST] exit module function called\n");
 }
 
